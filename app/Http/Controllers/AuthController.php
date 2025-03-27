@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\UserService;
+use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
@@ -41,22 +43,24 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
+        $data = $request->validate([
+            "email" => "email|required",
+            "password" => "required|min:6|max:20",
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        $user = $this->userService->getUserByEmail($data['email']);
+        if(!$user || !Hash::check($data['password'], $user->password)){
+            return response()->json([
+                "message" => 'invalid information',
+            ],500);
         }
 
-        $credentials = $request->only('email', 'password');
+        $token = JWTAuth::fromUser($user);
 
-        if (!$token = Auth::attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        return $this->respondWithToken($token);
+        return response()->json([
+            'message' => 'login successfully',
+            'token' => $token,
+        ],200);
     }
 
     public function me()

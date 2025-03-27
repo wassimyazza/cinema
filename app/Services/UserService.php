@@ -24,6 +24,11 @@ class UserService
         return $this->userRepository->findById($id);
     }
 
+    public function getUserByEmail($email)
+    {
+        return $this->userRepository->findByEmail($email);
+    }
+
     public function createUser(array $data)
     {
         $data['password'] = Hash::make($data['password']);
