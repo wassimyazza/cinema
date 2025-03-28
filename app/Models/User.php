@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Auth;
+use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -17,6 +18,7 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'phone',
         'address',
+        'role'
     ];
 
     protected $hidden = [
@@ -43,4 +45,11 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    // In User model
+    public function getIsAdminAttribute()
+    {
+        return $this->role === 'admin';
+    }
+
 }
