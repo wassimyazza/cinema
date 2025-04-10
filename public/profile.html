@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Cinema System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Cinema System</h1>
+            <div class="space-x-4">
+                <a href="index.html" class="hover:text-blue-200">Home</a>
+                <a href="movies.html" class="hover:text-blue-200">Movies</a>
+                <a href="showtimes.html" class="hover:text-blue-200">Showtimes</a>
+                <a href="reservations.html" class="hover:text-blue-200">My Reservations</a>
+                <a href="profile.html" class="hover:text-blue-200">Profile</a>
+                <button onclick="logout()" class="hover:text-blue-200">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-6">My Profile</h2>
+                
+                <form id="profileForm" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="name">
+                            Full Name
+                        </label>
+                        <input type="text" id="name" name="name" required
+                            class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
+                            Email
+                        </label>
+                        <input type="email" id="email" name="email" required
+                            class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="current_password">
+                            Current Password
+                        </label>
+                        <input type="password" id="current_password" name="current_password"
+                            class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="new_password">
+                            New Password
+                        </label>
+                        <input type="password" id="new_password" name="new_password"
+                            class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="new_password_confirmation">
+                            Confirm New Password
+                        </label>
+                        <input type="password" id="new_password_confirmation" name="new_password_confirmation"
+                            class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <button type="submit"
+                            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Update Profile
+                        </button>
+                        <button type="button" onclick="deleteAccount()"
+                            class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            Delete Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // Check authentication
+        if (!checkAuth()) {
+            window.location.href = 'login.html';
+        }
+
+        // Load user profile
+        async function loadProfile() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const user = await response.json();
+                
+                document.getElementById('name').value = user.name;
+                document.getElementById('email').value = user.email;
+            } catch (error) {
+                showError('Error loading profile');
+            }
+        }
+
+        // Update profile
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const currentPassword = document.getElementById('current_password').value;
+            const newPassword = document.getElementById('new_password').value;
+            const newPasswordConfirmation = document.getElementById('new_password_confirmation').value;
+            
+            if (newPassword && newPassword !== newPasswordConfirmation) {
+                showError('New passwords do not match');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        new_password_confirmation: newPasswordConfirmation
+                    })
+                });
+                
+                if (response.ok) {
+                    showSuccess('Profile updated successfully');
+                    const user = JSON.parse(localStorage.getItem('user'));
+                    user.name = name;
+                    user.email = email;
+                    localStorage.setItem('user', JSON.stringify(user));
+                } else {
+                    const data = await response.json();
+                    showError(data.message || 'Error updating profile');
+                }
+            } catch (error) {
+                showError('Error updating profile');
+            }
+        });
+
+        // Delete account
+        async function deleteAccount() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/account`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('role');
+                        localStorage.removeItem('user');
+                        window.location.href = 'login.html';
+                    } else {
+                        throw new Error('Failed to delete account');
+                    }
+                } catch (error) {
+                    showError('Error deleting account');
+                }
+            }
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // Load profile when page loads
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html> 

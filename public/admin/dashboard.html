@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Cinema System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Cinema System - Admin</h1>
+            <div class="space-x-4">
+                <a href="../index.html" class="hover:text-blue-200">Home</a>
+                <a href="dashboard.html" class="hover:text-blue-200">Dashboard</a>
+                <a href="movies-manage.html" class="hover:text-blue-200">Movies</a>
+                <a href="theaters-manage.html" class="hover:text-blue-200">Theaters</a>
+                <a href="showtimes-manage.html" class="hover:text-blue-200">Showtimes</a>
+                <a href="users-manage.html" class="hover:text-blue-200">Users</a>
+                <button onclick="logout()" class="hover:text-blue-200">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        <h2 class="text-2xl font-bold mb-6">Dashboard Overview</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-2">Total Revenue</h3>
+                <p class="text-3xl font-bold text-blue-600" id="totalRevenue">$0.00</p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-2">Total Bookings</h3>
+                <p class="text-3xl font-bold text-green-600" id="totalBookings">0</p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-2">Occupancy Rate</h3>
+                <p class="text-3xl font-bold text-purple-600" id="occupancyRate">0%</p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-2">Total Users</h3>
+                <p class="text-3xl font-bold text-red-600" id="totalUsers">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold mb-4">Popular Movies</h3>
+                <div id="popularMovies" class="space-y-4">
+                    <!-- Popular movies will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold mb-4">Recent Bookings</h3>
+                <div id="recentBookings" class="space-y-4">
+                    <!-- Recent bookings will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/shared.js"></script>
+    <script>
+        // Check admin authentication
+        if (!checkAuth() || !checkAdmin()) {
+            window.location.href = '../login.html';
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load total revenue
+                const revenueResponse = await fetch(`${API_BASE_URL}/movie-revenue`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const revenueData = await revenueResponse.json();
+                const totalRevenue = revenueData.reduce((sum, movie) => sum + movie.revenue, 0);
+                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+
+                // Load occupancy rates
+                const occupancyResponse = await fetch(`${API_BASE_URL}/occupancy-rates`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const occupancyData = await occupancyResponse.json();
+                const averageOccupancy = occupancyData.reduce((sum, rate) => sum + rate.rate, 0) / occupancyData.length;
+                document.getElementById('occupancyRate').textContent = `${averageOccupancy.toFixed(1)}%`;
+
+                // Load popular movies
+                const popularResponse = await fetch(`${API_BASE_URL}/popular-movies`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const popularMovies = await popularResponse.json();
+                
+                const popularMoviesDiv = document.getElementById('popularMovies');
+                let popularMoviesHtml = '';
+                
+                popularMovies.forEach(movie => {
+                    popularMoviesHtml += `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${movie.title}</p>
+                                <p class="text-gray-600">${movie.bookings} bookings</p>
+                            </div>
+                            <p class="text-green-600 font-semibold">${formatCurrency(movie.revenue)}</p>
+                        </div>
+                    `;
+                });
+                
+                popularMoviesDiv.innerHTML = popularMoviesHtml;
+
+                // Load recent bookings
+                const bookingsResponse = await fetch(`${API_BASE_URL}/reservations`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const bookings = await bookingsResponse.json();
+                
+                const recentBookingsDiv = document.getElementById('recentBookings');
+                let recentBookingsHtml = '';
+                
+                bookings.slice(0, 5).forEach(booking => {
+                    recentBookingsHtml += `
+                        <div class="border-b pb-4">
+                            <p class="font-semibold">${booking.showtime.movie.title}</p>
+                            <p class="text-gray-600">${formatDate(booking.showtime.start_time)}</p>
+                            <p class="text-gray-600">Seat: ${booking.seat.seat_number}</p>
+                        </div>
+                    `;
+                });
+                
+                recentBookingsDiv.innerHTML = recentBookingsHtml;
+
+                // Update total bookings
+                document.getElementById('totalBookings').textContent = bookings.length;
+
+                // Load total users
+                const usersResponse = await fetch(`${API_BASE_URL}/users`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const users = await usersResponse.json();
+                document.getElementById('totalUsers').textContent = users.length;
+
+            } catch (error) {
+                showError('Error loading dashboard data');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('user');
+            window.location.href = '../login.html';
+        }
+
+        // Load dashboard data when page loads
+        document.addEventListener('DOMContentLoaded', loadDashboardData);
+    </script>
+</body>
+</html> 

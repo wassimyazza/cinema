@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Seats - Cinema System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Cinema System</h1>
+            <div class="space-x-4">
+                <a href="index.html" class="hover:text-blue-200">Home</a>
+                <a href="movies.html" class="hover:text-blue-200">Movies</a>
+                <a href="showtimes.html" class="hover:text-blue-200">Showtimes</a>
+                <a href="reservations.html" class="hover:text-blue-200">My Reservations</a>
+                <a href="profile.html" class="hover:text-blue-200">Profile</a>
+                <button onclick="logout()" class="hover:text-blue-200">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        <div class="max-w-4xl mx-auto">
+            <div id="showtimeInfo" class="bg-white rounded-lg shadow-md p-4 mb-6">
+                <!-- Showtime information will be loaded here -->
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-4">Select Your Seats</h2>
+                <div class="mb-4">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                        <span class="text-sm">Available</span>
+                        <div class="w-4 h-4 bg-red-500 rounded mx-4"></div>
+                        <span class="text-sm">Booked</span>
+                        <div class="w-4 h-4 bg-blue-500 rounded ml-4"></div>
+                        <span class="text-sm">Selected</span>
+                    </div>
+                </div>
+
+                <div id="screen" class="bg-gray-800 text-white text-center py-2 mb-8">
+                    SCREEN
+                </div>
+
+                <div id="seatsGrid" class="grid grid-cols-8 gap-2 mb-8">
+                    <!-- Seats will be loaded here -->
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-semibold">Selected Seats: <span id="selectedSeatsCount">0</span></p>
+                        <p class="text-lg font-semibold">Total Price: <span id="totalPrice">$0.00</span></p>
+                    </div>
+                    <button id="proceedToCheckout" 
+                        class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                        disabled>
+                        Proceed to Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // Check authentication
+        if (!checkAuth()) {
+            window.location.href = 'login.html';
+        }
+
+        // Get showtime ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const showtimeId = urlParams.get('showtime');
+
+        let selectedSeats = [];
+        let showtimePrice = 0;
+
+        // Load showtime information
+        async function loadShowtimeInfo() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/showtimes/${showtimeId}`);
+                const showtime = await response.json();
+                
+                showtimePrice = showtime.price;
+                
+                const showtimeInfo = document.getElementById('showtimeInfo');
+                showtimeInfo.innerHTML = `
+                    <h2 class="text-xl font-bold">${showtime.movie.title}</h2>
+                    <p class="text-gray-600">${formatDate(showtime.start_time)}</p>
+                    <p class="text-gray-600">Theater: ${showtime.theater.name}</p>
+                    <p class="text-gray-600">Type: ${showtime.type}</p>
+                    <p class="text-gray-600">Price per seat: ${formatCurrency(showtime.price)}</p>
+                `;
+            } catch (error) {
+                showError('Error loading showtime information');
+            }
+        }
+
+        // Load available seats
+        async function loadSeats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/seats/available/${showtimeId}`);
+                const seats = await response.json();
+                
+                const seatsGrid = document.getElementById('seatsGrid');
+                let html = '';
+                
+                seats.forEach(seat => {
+                    html += `
+                        <div class="seat bg-green-500 text-white p-4 text-center rounded cursor-pointer hover:bg-green-600"
+                             data-seat-id="${seat.id}"
+                             data-seat-number="${seat.seat_number}"
+                             onclick="selectSeat(this)">
+                            ${seat.seat_number}
+                        </div>
+                    `;
+                });
+                
+                seatsGrid.innerHTML = html;
+            } catch (error) {
+                showError('Error loading seats');
+            }
+        }
+
+        // Select seat
+        function selectSeat(element) {
+            const seatId = element.dataset.seatId;
+            const seatNumber = element.dataset.seatNumber;
+            
+            if (element.classList.contains('bg-blue-500')) {
+                // Deselect seat
+                element.classList.remove('bg-blue-500');
+                element.classList.add('bg-green-500');
+                selectedSeats = selectedSeats.filter(seat => seat.id !== seatId);
+            } else {
+                // Select seat
+                element.classList.remove('bg-green-500');
+                element.classList.add('bg-blue-500');
+                selectedSeats.push({ id: seatId, number: seatNumber });
+            }
+            
+            updateSelectionInfo();
+        }
+
+        // Update selection information
+        function updateSelectionInfo() {
+            const selectedSeatsCount = document.getElementById('selectedSeatsCount');
+            const totalPrice = document.getElementById('totalPrice');
+            const proceedButton = document.getElementById('proceedToCheckout');
+            
+            selectedSeatsCount.textContent = selectedSeats.length;
+            totalPrice.textContent = formatCurrency(selectedSeats.length * showtimePrice);
+            
+            proceedButton.disabled = selectedSeats.length === 0;
+        }
+
+        // Proceed to checkout
+        document.getElementById('proceedToCheckout').addEventListener('click', () => {
+            localStorage.setItem('selectedSeats', JSON.stringify(selectedSeats));
+            localStorage.setItem('showtimeId', showtimeId);
+            window.location.href = 'checkout.html';
+        });
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (showtimeId) {
+                loadShowtimeInfo();
+                loadSeats();
+            } else {
+                window.location.href = 'movies.html';
+            }
+        });
+    </script>
+</body>
+</html> 

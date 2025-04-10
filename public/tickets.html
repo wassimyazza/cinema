@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tickets - Cinema System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Cinema System</h1>
+            <div class="space-x-4">
+                <a href="index.html" class="hover:text-blue-200">Home</a>
+                <a href="movies.html" class="hover:text-blue-200">Movies</a>
+                <a href="showtimes.html" class="hover:text-blue-200">Showtimes</a>
+                <a href="reservations.html" class="hover:text-blue-200">My Reservations</a>
+                <a href="profile.html" class="hover:text-blue-200">Profile</a>
+                <button onclick="logout()" class="hover:text-blue-200">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6">My Tickets</h2>
+            
+            <div id="ticketsList" class="space-y-4">
+                <!-- Tickets will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script>
+        // Check authentication
+        if (!checkAuth()) {
+            window.location.href = 'login.html';
+        }
+
+        // Load tickets
+        async function loadTickets() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tickets/reservation/${localStorage.getItem('lastReservationId')}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const tickets = await response.json();
+                
+                const ticketsList = document.getElementById('ticketsList');
+                let html = '';
+                
+                tickets.forEach(ticket => {
+                    html += `
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-xl font-bold">${ticket.showtime.movie.title}</h3>
+                                    <p class="text-gray-600">${formatDate(ticket.showtime.start_time)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-gray-600">Ticket #${ticket.id}</p>
+                                    <p class="text-gray-600">Seat: ${ticket.seat.seat_number}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <p class="text-gray-600">Theater:</p>
+                                    <p class="font-semibold">${ticket.showtime.theater.name}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">Type:</p>
+                                    <p class="font-semibold">${ticket.showtime.type}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">Price:</p>
+                                    <p class="font-semibold">${formatCurrency(ticket.showtime.price)}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">Status:</p>
+                                    <p class="font-semibold text-green-600">Confirmed</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-gray-600">Booked by:</p>
+                                    <p class="font-semibold">${JSON.parse(localStorage.getItem('user')).name}</p>
+                                </div>
+                                <button onclick="downloadTicket(${ticket.id})" 
+                                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Download Ticket
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                ticketsList.innerHTML = html;
+            } catch (error) {
+                showError('Error loading tickets');
+            }
+        }
+
+        // Download ticket
+        async function downloadTicket(ticketId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/download`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ticket-${ticketId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    throw new Error('Failed to download ticket');
+                }
+            } catch (error) {
+                showError('Error downloading ticket');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+        }
+
+        // Load tickets when page loads
+        document.addEventListener('DOMContentLoaded', loadTickets);
+    </script>
+</body>
+</html> 
